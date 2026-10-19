@@ -21,7 +21,7 @@ describe('eval-sweep.yml', () => {
   test('runs weekly after the 06:00 UTC periodic census, plus dispatch with k, cap and dry-run inputs', () => {
     expect(Object.keys(workflow.on).sort()).toEqual(['schedule', 'workflow_dispatch']);
     const [hour] = /cron: '0 (\d+) \* \* 1'/.exec(source)!.slice(1).map(Number);
-    const census = Number(/cron: '0 (\d+) \* \* 1'/.exec(fs.readFileSync(path.join(ROOT, '.github/workflows/evals-periodic.yml'), 'utf8'))![1]);
+    const census = Number(/cron: '\d+ (\d+) \* \* 1'/.exec(fs.readFileSync(path.join(ROOT, '.github/workflows/evals-periodic.yml'), 'utf8'))![1]);
     expect(hour!).toBeGreaterThan(census);
     expect(Object.keys(workflow.on.workflow_dispatch.inputs).sort()).toEqual(['cap_usd', 'dry_run', 'k']);
   });

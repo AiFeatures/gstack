@@ -19,10 +19,11 @@ name: Periodic Evals
 run-name: ${{ inputs.nonce && format('Periodic Evals [eval-bg {0}]', inputs.nonce) || 'Periodic Evals' }}
 on:
   schedule:
-    - cron: '0 6 * * 1'  # Monday 6 AM UTC; build-image below builds or reuses the CI image
+    # Offset minutes keep both runs off the :00/:30 scheduler spike.
+    - cron: '17 6 * * 1'  # Monday 06:17 UTC; build-image below builds or reuses the CI image
     # Daily, for autoplan-schema-canary alone (latest Claude Code vs the /autoplan
     # guard's payload assumptions); every census job below skips this schedule.
-    - cron: '30 7 * * *'
+    - cron: '43 7 * * *'
   workflow_dispatch:
     inputs:
       redispatch_of:
@@ -51,7 +52,7 @@ on:
 # runs in its own group so it never cancels the run that dispatched it; both
 # runs are reported.
 concurrency:
-  group: evals-periodic-${{ github.ref }}-${{ github.event_name }}${{ inputs.redispatch_of && format('-redispatch-{0}', inputs.redispatch_of) || '' }}${{ (github.event.schedule == '30 7 * * *' || inputs.schema_canary_only) && '-schema-canary' || '' }}
+  group: evals-periodic-${{ github.ref }}-${{ github.event_name }}${{ inputs.redispatch_of && format('-redispatch-{0}', inputs.redispatch_of) || '' }}${{ (github.event.schedule == '43 7 * * *' || inputs.schema_canary_only) && '-schema-canary' || '' }}
   cancel-in-progress: true
 
 env:
@@ -64,6 +65,10 @@ jobs:
   build-image:
     runs-on: ubicloud-standard-8
     timeout-minutes: 15
+    # Fork guard: scheduled runs only in the AiFeatures fork (not upstream or
+    # other forks). Every other job needs build-image and/or plan-slices, so
+    # they skip with it; manual dispatch is unaffected.
+    if: ${{ github.event_name != 'schedule' || github.repository_owner == 'AiFeatures' }}
     permissions:
       contents: read
       packages: write
@@ -119,7 +124,7 @@ jobs:
     timeout-minutes: 10
     # The daily schedule and a canary-only dispatch run schema-canary alone;
     # every census job needs this one, so they all skip with it.
-    if: ${{ github.event.schedule != '30 7 * * *' && !inputs.schema_canary_only }}
+    if: ${{ github.event.schedule != '43 7 * * *' && !inputs.schema_canary_only && (github.event_name != 'schedule' || github.repository_owner == 'AiFeatures') }}
     permissions:
       contents: read
     outputs:
@@ -195,7 +200,7 @@ jobs:
   schema-canary:
     runs-on: ubicloud-standard-2
     needs: build-image
-    if: ${{ github.event.schedule == '30 7 * * *' || inputs.schema_canary_only }}
+    if: ${{ github.event.schedule == '43 7 * * *' || inputs.schema_canary_only }}
     timeout-minutes: 20
     permissions:
       contents: read
